@@ -2,7 +2,7 @@ import sys, os
 
 sys.path.append(os.pardir)
 import numpy as np
-from scipy.linalg import lstsq
+
 import Drivers.VF_Driver as VFdriver
 import Drivers.RP_Driver as RPdriver
 import Loader.data_loader as Loader
@@ -20,13 +20,12 @@ def VF_PolesResidues(Zi, f0, Nfit):
         print('Vector Fitting Error')
         return None, None, None, None
 
-    VFopts = {}
-    VFopts['asymp'] = 3
+    VFopts = {'asymp': 3,
+              'plot': 0,
+              'N': Nfit,
+              'Niter1': 10,
+              'Niter2': 5}
     s = 1j * 2 * np.pi * np.array(f0)
-    VFopts['plot'] = 0
-    VFopts['N'] = Nfit
-    VFopts['Niter1'] = 10
-    VFopts['Niter2'] = 5
 
     poles = np.array([])  # Initial poles are automatically generated
 
