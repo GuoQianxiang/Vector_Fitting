@@ -221,6 +221,7 @@ def drive(bigH, s, poles, opts):
         if iter == Niter2 - 1:
             VF['skip_res'] = 0
         SER, poles, rmserr, fit1 = vectfit3(f, s, poles, weight, VF)
+        print(iter)
     if Niter2 == 0:
         VF['skip_res'] = 0
         VF['skip_pole'] = 1
@@ -455,7 +456,7 @@ def tri2full(SER):
     DD = DD + (DD - np.diag(np.diag(DD))).T
     EE = EE + (EE - np.diag(np.diag(EE))).T
 
-    SER2 = {'A': AA, 'B': BB, 'C': CC, 'D': DD, 'E': EE}
+    SER2 = {'A': AA, 'B': BB.T, 'C': CC, 'D': DD, 'E': EE}
     return SER2
 
 

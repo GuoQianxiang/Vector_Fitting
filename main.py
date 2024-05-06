@@ -8,7 +8,7 @@ import Drivers.VF_Driver as VFdriver
 
 if __name__ == "__main__":
 
-    data, Z0, frq, odc = Loader.load("./Data/data.mat")
+    data, Z0, frq, odc = Loader.load("./Data/test.mat")
 
     VFopts = {'asymp': 3,
               'plot': 0,
@@ -20,5 +20,5 @@ if __name__ == "__main__":
     poles = np.array([])  # Initial poles are automatically generated
 
     SER, rmserr, bigHfit, opts = VFdriver.drive(Z0, s, poles, VFopts)
-    io.savemat('./Output/SER.mat', SER)
+    io.savemat('./Output/test.mat', SER)
 

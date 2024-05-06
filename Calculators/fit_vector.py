@@ -1,4 +1,5 @@
 import numpy as np
+from numpy import linalg as LA
 from scipy.optimize import minimize  # 仅作为示例，具体需要根据算法细节
 
 
@@ -159,7 +160,8 @@ def vectfit3(f, s, poles, weight, opts):
                 Dk[:, m] = (1. / (s - LAMBD[m, m])).flatten()
             elif cindex[m] == 1:  # 复数极点，第一部分
                 Dk[:, m] = (1. / (s - LAMBD[m, m]) + 1. / (s - np.conj(LAMBD[m, m]))).flatten()
-                Dk[:, m + 1] = (1j / (s - LAMBD[m, m]) - 1j / (s - np.conj(LAMBD[m, m]))).flatten()
+                if m+1 < N:
+                    Dk[:, m + 1] = (1j / (s - LAMBD[m, m]) - 1j / (s - np.conj(LAMBD[m, m]))).flatten()
 
         # 根据opts.asymp的值添加列
         if opts['asymp'] == 1 or opts['asymp'] == 2:
@@ -201,7 +203,7 @@ def vectfit3(f, s, poles, weight, opts):
                 if n == Nc - 1:
                     # 添加一个新的行到矩阵A，新的行是一个零向量，长度与A的列数相同
                     A = np.vstack((A, np.zeros((1, A.shape[1]))))
-                    for mm in range(N + 1):
+                    for mm in range(N+1):
                         A[2 * Ns, offset + mm] = np.real(scale * np.sum(Dk[:, mm], axis=0))
 
                 # QR分解
@@ -222,6 +224,9 @@ def vectfit3(f, s, poles, weight, opts):
                 Escale[col] = 1 / np.linalg.norm(AA[:, col])
                 AA[:, col] *= Escale[col]
             # 解线性系统
+            AA = np.real(AA)
+            bb = np.real(bb)
+            # x = np.linalg.solve(AA, bb)
             x = np.linalg.lstsq(AA, bb, rcond=None)[0]
             x = x * Escale.T
 
@@ -272,15 +277,20 @@ def vectfit3(f, s, poles, weight, opts):
         C = x[:-1]
         D = x[-1]
 
+        C = np.complex_(C)
+        # temp_C = np.zeros(C.shape, dtype=complex)
         # 将 C 转换回复数形式
         for m in range(N):
             if cindex[m] == 1:
                 r1 = C[m]
-                r2 = C[m + 1]
-                C[m] = r1 + 1j * r2
-                C[m + 1] = r1 - 1j * r2
+                if m+1 < N: # python中没有自动扩充矩阵的功能，防止索引越界
+                    r2 = C[m + 1]
+                C[m] = r1 + 1j*r2
+                if m+1 < N:
+                    C[m + 1] = r1 - 1j * r2
 
         # N = LAMBD.shape[0]  # 假设LAMBD是一个NxN的矩阵
+
         m = 0
         for n in range(1, N + 1):  # Python中的循环是从1开始到N（包括N）
             m += 1
@@ -303,14 +313,15 @@ def vectfit3(f, s, poles, weight, opts):
         C = C.reshape(-1, 1)
         ZER = LAMBD - np.dot(B, C.T) / D
 
-        roetter = np.linalg.eigvals(ZER).T
+        # roetter = LA.eig(ZER)
+        roetter = np.linalg.eigvals(np.real(ZER)).T
         unstables = np.real(roetter) > 0
 
         if opts['stable'] == 1:
             # 强制不稳定的极点变为稳定
             roetter[unstables] -= 2 * np.real(roetter[unstables])
 
-        roetter = np.sort(roetter)
+        roetter = sorted(roetter, key=abs) # 不能使用np.sort，其默认按照实部进行排序，我们需要根据模的大小进行排序
         N = len(roetter)
 
         # 将实数极点和复数极点分开排序
@@ -326,7 +337,7 @@ def vectfit3(f, s, poles, weight, opts):
 
         # 如果存在复数极点，则对它们进行排序
         if N1 < N - 1:
-            roetter[N1 + 1:] = np.sort(roetter[N1 + 1:])
+            roetter[N1 + 1:] = sorted(roetter[N1 + 1:], key=abs)#np.sort(roetter[N1 + 1:])
 
         # 对所有极点应用转换来调整它们的虚部
         roetter = roetter - 2j * np.imag(roetter)
@@ -364,65 +375,84 @@ def vectfit3(f, s, poles, weight, opts):
             BB = np.zeros((2 * Ns, Nc), dtype=complex)
 
         # 计算Dk
-        Dk = np.zeros((Ns, N), dtype=np.complex_)
+        Dk = np.zeros((Ns, N), dtype=complex)
         for m in range(N):
             if cindex[m] == 0:  # real pole
                 Dk[:, m] = 1 / np.squeeze(s - LAMBD[m][0])
             elif cindex[m] == 1:  # complex pole, 1st part
-                Dk[:, m] = (1 / (s - LAMBD[m][0])) + (1 / (s - np.transpose(LAMBD[m])))  # todo有可能还要改
-                Dk[:, m + 1] = 1j / (s - LAMBD[m][0]) - 1j / (s - np.transpose(LAMBD[m]))
+                # acd = (1 / (s - LAMBD[m][0])) + (1 / (s - np.squeeze(np.transpose(LAMBD[m]))))
+                # Dk[:, m] = (1 / (s - LAMBD[m][0])) + (1 / (s - np.squeeze(np.transpose(LAMBD[m]))))
+                Dk[:, m] = np.squeeze((1 / (s - LAMBD[m][0])) + (1 / (s - np.transpose(LAMBD[m]))))  # todo有可能还要改
+                if m+1 < N:
+                    Dk[:, m + 1] = np.squeeze(1j / (s - LAMBD[m][0]) - 1j / (s - np.transpose(LAMBD[m])))
 
-        # todo2 差if common_weight==1
-        Dk = np.zeros((Ns, N), dtype=np.complex_)
-        for m in range(N):
-            if cindex[m] == 0:  # real pole
-                Dk[:, m] = np.squeeze(weight) / np.squeeze(s - LAMBD[m][0])
-            elif cindex[m] == 1:  # complex pole, 1st part
-                Dk[:, m] = weight / (s - LAMBD[m]) + weight / (s - np.transpose(LAMBD[m]))
-                Dk[:, m + 1] = 1j * weight / (s - LAMBD[m]) - 1j * weight / (s - np.transpose(LAMBD[m]))
+        # todo2 差
+        if common_weight == 1:
+            Dk = np.zeros((Ns, N), dtype=np.complex_)
+            for m in range(N):
+                if cindex[m] == 0:  # real pole
+                    Dk[:, m] = np.squeeze(weight) / np.squeeze(s - LAMBD[m][0])
+                elif cindex[m] == 1:  # complex pole, 1st part
+                    Dk[:, m] = np.squeeze(weight / (s - np.conj(LAMBD[m])) + weight / (s - LAMBD[m])) # LAMBD已经转置过，此处与matlab计算不同
+                    if m + 1 < N:
+                        Dk[:, m + 1] = np.squeeze(1j * weight / (s - np.conj(LAMBD[m])) - 1j * weight / (s - LAMBD[m]))# LAMBD已经转置过，此处与matlab计算不同
 
-        # 更新A和BB矩阵
-        A[0:Ns, 0:N] = Dk
-        if opts['asymp'] == 1:
-            pass
-        elif opts['asymp'] == 2:
-            A[0:Ns, N] = weight
-        else:
-            A[0:Ns, N] = np.squeeze(weight)
-            A[0:Ns, N + 1] = np.squeeze(weight * s)
+            # 更新A和BB矩阵
+            if opts['asymp'] == 1:
+                A[:Ns, :N] = Dk
+            elif opts['asymp'] == 2:
+                A[:Ns, :N] = Dk
+                A[:Ns, N] = weight
+            else:
+                A[:Ns, :N] = Dk
+                A[:Ns, N] = np.squeeze(weight)
+                A[:Ns, N + 1] = np.squeeze(weight * s)
 
-        for m in range(Nc):
-            BB[0:Ns, m] = np.squeeze(weight) * f[m, :]
+            for m in range(Nc):
+                BB[:Ns, m] = np.squeeze(weight) * f[m, :]
 
-        # 1分离实部和虚部
-        A[Ns:2 * Ns, :] = np.imag(A[0:Ns, :])
-        A[0:Ns, :] = np.real(A[0:Ns, :])
-        BB[Ns:2 * Ns, :] = np.imag(BB[0:Ns, :])
-        BB[0:Ns, :] = np.real(BB[0:Ns, :])
+            # 1分离实部和虚部
+            A[Ns:2 * Ns, :] = np.imag(A[0:Ns, :])
+            A[0:Ns, :] = np.real(A[0:Ns, :])
+            BB[Ns:2 * Ns, :] = np.imag(BB[0:Ns, :])
+            BB[0:Ns, :] = np.real(BB[0:Ns, :])
 
-        # 归一化A列
-        Escale = np.linalg.norm(A, axis=0)
-        A = A / Escale
+            if opts['asymp'] == 2:
+                A[:Ns, N] = A[:Ns, N]
+            elif opts['asymp'] == 3:
+                A[:Ns, N] = A[:Ns, N]
+                A[Ns:2 * Ns, N + 1] = A[Ns:2 * Ns, N + 1]
+            # # 归一化A列
+            # Escale = np.linalg.norm(A, axis=0)
+            # A = A / Escale
+            #
+            # # 解线性方程组
+            # X = np.dot(np.linalg.pinv(A), BB)  # X = np.linalg.solve(A, BB)
+            # 假设A和BB已经被适当初始化
 
-        # 解线性方程组
-        X = np.dot(np.linalg.pinv(A), BB)  # X = np.linalg.solve(A, BB)
+            Escale = np.zeros(A.shape[1])
+            for col in range(A.shape[1]):
+                Escale[col] = np.linalg.norm(A[:, col], 2)
+                A[:, col] = A[:, col] / Escale[col]
 
-        # 归一化X
-        for n in range(Nc):
-            X[:, n] /= Escale
+            X = np.dot(np.linalg.pinv(A), BB)
 
-        # 转置X以符合MATLAB输出格式
-        X = X.T
+            # 归一化X
+            for n in range(Nc):
+                X[:, n] /= Escale
 
-        # 提取C, SERD, SERE
-        C = X[:, 0:N]
-        SERD = np.zeros(Nc)
-        SERE = np.zeros(Nc)
-        if opts['asymp'] == 2:
-            SERD = X[:, N]
-        elif opts['asymp'] == 3:
-            SERD = X[:, N]
-            SERE = X[:, N + 1]
+            # 转置X以符合MATLAB输出格式
+            X = X.T
+
+            # 提取C, SERD, SERE
+            C = X[:, 0:N]
+            SERD = np.zeros(Nc)
+            SERE = np.zeros(Nc)
+            if opts['asymp'] == 2:
+                SERD = X[:, N]
+            elif opts['asymp'] == 3:
+                SERD = X[:, N]
+                SERE = X[:, N + 1]
 
 
         for m in range(N):
@@ -472,8 +502,8 @@ def vectfit3(f, s, poles, weight, opts):
     else:
         B = np.ones((N, 1))
         C = np.zeros((Nc, N))
-        D = np.zeros((Nc, 1))  # 注意：MATLAB中D和E的初始化为(Nc,Nc)，但通常D为直流项，应为一维
-        E = np.zeros((Nc, 1))  # 根据实际情况，这里假设D和E应为(Nc, 1)，如需不同，请调整
+        D = np.zeros((Nc, Nc))  # 注意：MATLAB中D和E的初始化为(Nc,Nc)，但通常D为直流项，应为一维
+        E = np.zeros((Nc, Nc))  # 根据实际情况，这里假设D和E应为(Nc, 1)，如需不同，请调整
         rmserr = 0
 
     if opts['cmplx_ss'] != 1:
