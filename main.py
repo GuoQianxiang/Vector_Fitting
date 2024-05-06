@@ -6,9 +6,16 @@ import numpy as np
 import scipy.io as io
 import Drivers.VF_Driver as VFdriver
 
-if __name__ == "__main__":
 
-    data, Z0, frq, odc = Loader.load("./Data/test.mat")
+if __name__ == "__main__":
+    data = io.loadmat("./Data/data.mat")
+
+    # 访问参数
+    Z0 = data['Z0']  # 3*3*43的复数矩阵
+
+    frq = data['frq'].flatten()  # 1*43的double类型矩阵，转换为一维数组
+
+    odc = data['odc'].flatten()  # 整数
 
     VFopts = {'asymp': 3,
               'plot': 0,
@@ -20,5 +27,6 @@ if __name__ == "__main__":
     poles = np.array([])  # Initial poles are automatically generated
 
     SER, rmserr, bigHfit, opts = VFdriver.drive(Z0, s, poles, VFopts)
-    io.savemat('./Output/test.mat', SER)
+    print('finish')
+    io.savemat('./Output/data.mat', SER)
 

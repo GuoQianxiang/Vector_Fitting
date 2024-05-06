@@ -321,7 +321,10 @@ def vectfit3(f, s, poles, weight, opts):
             # 强制不稳定的极点变为稳定
             roetter[unstables] -= 2 * np.real(roetter[unstables])
 
-        roetter = sorted(roetter, key=abs) # 不能使用np.sort，其默认按照实部进行排序，我们需要根据模的大小进行排序
+        if isinstance(roetter[0], complex):
+            roetter = sorted(roetter, key=abs) # 不能使用np.sort，其默认按照实部进行排序，我们需要根据模的大小进行排序
+        else:
+            roetter = np.sort(roetter)
         N = len(roetter)
 
         # 将实数极点和复数极点分开排序
@@ -337,9 +340,12 @@ def vectfit3(f, s, poles, weight, opts):
 
         # 如果存在复数极点，则对它们进行排序
         if N1 < N - 1:
-            roetter[N1 + 1:] = sorted(roetter[N1 + 1:], key=abs)#np.sort(roetter[N1 + 1:])
+            if isinstance(roetter[0], complex):
+                roetter[N1 + 1:] = sorted(roetter[N1 + 1:], key=abs)#np.sort(roetter[N1 + 1:])
+            else:
+                roetter[N1 + 1:] = np.sort(roetter[N1 + 1:])
 
-        # 对所有极点应用转换来调整它们的虚部
+                # 对所有极点应用转换来调整它们的虚部
         roetter = roetter - 2j * np.imag(roetter)
         roetter = roetter.reshape(-1, 1)
         # 最终转置roetter以匹配MATLAB中的行向量表示
