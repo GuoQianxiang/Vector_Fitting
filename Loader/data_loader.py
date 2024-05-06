@@ -1,5 +1,6 @@
 import scipy.io
-
+import sys, os
+sys.path.append(os.pardir)
 def load(filename):
     # 加载MATLAB数据文件
     data = scipy.io.loadmat(filename)

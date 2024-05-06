@@ -1,4 +1,6 @@
 import unittest
+import sys, os
+sys.path.append(os.pardir)
 import numpy as np
 import scipy.io
 from Test.test_utils import assert_dicts_equal
